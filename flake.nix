@@ -2,7 +2,7 @@
   description = "Development flake for tide";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -18,7 +18,7 @@
         # pkgs = nixpkgs.legacyPackages.${system};
         pkgs = import nixpkgs { inherit system; };
         buildInputs = with pkgs; [
-          # stdenv.cc.cc.lib
+          stdenv.cc.cc.lib
           # zlib
           # glib
         ];
