@@ -1,5 +1,7 @@
-import os
 import json
+import os
+import sys
+
 import requests
 
 from tide.utils import get_project_root
@@ -7,6 +9,9 @@ from tide.utils import get_project_root
 
 def fetch_admiralty_tides(api_key: str, station_id: str, n_days: int = 1):
     """Fetch tide data from admiralty discovery API"""
+    if not api_key:
+        raise ValueError("Admiralty API Key is missing.")
+
     url = (
         "https://admiraltyapi.azure-api.net/uktidalapi/api/V1/"
         f"Stations/{station_id}/TidalEvents?duration={n_days}"
@@ -25,6 +30,13 @@ if __name__ == "__main__":
 
     API_KEY = os.getenv("ADMIRALTY_DISCOVERY_API_KEY")
     STATION = "0023C"  # Totnes
+
+    if not API_KEY:
+        print(
+            "[ERROR] ADMIRALTY_DISCOVERY_API_KEY environment variable is not set!",
+            file=sys.stderr,
+        )
+        exit(1)
 
     # script_dir = Path(__file__).resolve().parents[2]
     project_root = get_project_root()
