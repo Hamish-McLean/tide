@@ -1,9 +1,10 @@
 import io
 import json
 import sys
+from datetime import datetime
+
 import matplotlib.pyplot as plt
 import numpy as np
-from datetime import datetime
 from PIL import Image
 
 from tide.utils import get_project_root
@@ -83,32 +84,39 @@ def plot_tides(
     minutes_x, heights_y, events = fit_tide_curve(raw_events)
 
     # Set matplotlib outputs
+    scale = 2
     dpi = 100
     fig, ax = plt.subplots(
-        figsize=(width / dpi, height / dpi), dpi=dpi, layout="constrained"
+        figsize=((width * scale) / dpi, (height * scale) / dpi),
+        dpi=dpi,
+        layout="constrained",
     )
     fig.patch.set_facecolor("white")
     ax.set_facecolor("white")
 
+    # font_settings = {"fontname": "Dejavu Sans", "color": "black"}
+    font = "Dejavu Sans"
+
     # Plot curve
-    ax.plot(minutes_x, heights_y, color="black", linewidth=2)
+    ax.plot(minutes_x, heights_y, color="black", linewidth=4)
 
     # Plot and annotate events
     for event in events:
         y_pos = 1.0 if event["type"] == "HighWater" else -1.0
 
         # Draw marker
-        ax.plot(event["minute"], y_pos, marker="o", color="black", markersize=4)
+        ax.plot(event["minute"], y_pos, marker="o", color="black", markersize=8)
 
         # Keep text label offset dynamically in-bounds
-        offset = -18 if y_pos > 0 else 12
+        offset = -36 if y_pos > 0 else 24
         ax.annotate(
             event["time"],
             xy=(event["minute"], y_pos),
             xytext=(0, offset),
             textcoords="offset points",
             ha="center",
-            fontsize=8,
+            fontname=font,
+            fontsize=16,
             # fontweight="bold",
             color="black",
         )
@@ -118,7 +126,10 @@ def plot_tides(
     ax.set_xmargin(0)
     ax.set_xticks(np.arange(0, 1441, 240))
     ax.set_xticklabels(
-        ["00", "04", "08", "12", "16", "20", "24"], fontsize=8, color="black"
+        ["00", "04", "08", "12", "16", "20", "24"],
+        fontname=font,
+        fontsize=16,
+        color="black",
     )
     # ax.tick_params(axis="x", bottom=False)
     ax.set_ylim(-1.1, 1.1)
@@ -133,17 +144,18 @@ def plot_tides(
     # Set title
     date = events[0]["date"]
     weekday = events[0]["weekday"]  # date.strftime("%A")
-    ax.set_title(f"{weekday} {date}", fontsize=10, fontweight="bold")
+    ax.set_title(f"{weekday} {date}", fontname=font, fontsize=20, fontweight="bold")
 
     # Save plot in buffer
     buf = io.BytesIO()
-    plt.savefig(
-        buf, format="png", dpi=dpi
-    )  # , bbox_inches="tight")  # , pad_inches=-0.001)
+    plt.savefig(buf, format="png", dpi=dpi)
     plt.close(fig)
     buf.seek(0)
 
-    return Image.open(buf)
+    img = Image.open(buf)
+    img_resized = img.resize((width, height), Image.Resampling.LANCZOS)
+
+    return img_resized  # Image.open(buf)
 
 
 if __name__ == "__main__":
