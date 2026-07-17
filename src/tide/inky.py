@@ -17,6 +17,7 @@ def initialise_inky_display(invert=False):
 
 def display_image(inky_display, image: Image.Image):
     inky_display.set_image(image)
+    inky_display.show()
 
 
 if __name__ == "__main__":
