@@ -3,10 +3,8 @@ import json
 import sys
 from datetime import datetime
 
-import matplotlib.pyplot as plt
-import matplotlib.font_manager as fm
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 from tide.utils import get_project_root
 
@@ -79,86 +77,131 @@ def fit_tide_curve(raw_events: list[dict]) -> tuple[np.ndarray, np.ndarray, list
 
 
 def plot_tides(
-    raw_events: list[dict], width: int = 250, height: int = 122
+    raw_events: list[dict],
+    width: int = 250,
+    height: int = 122,
 ) -> Image.Image:
-    """Plot tide curve from discrete tide event times"""
-    minutes_x, heights_y, events = fit_tide_curve(raw_events)
+    """
+    Renders a pixel-perfect tide plot entirely via PIL using relative proportions.
+    Adapts cleanly to any display width or height.
+    """
+    x_min, y_val, events = fit_tide_curve(raw_events)
 
-    # Set matplotlib outputs
-    scale = 2
-    dpi = 100
-    fig, ax = plt.subplots(figsize=(width / dpi, height / dpi), dpi=dpi, layout="constrained",)
-    fig.patch.set_facecolor("white")
-    fig.patch.set_edgecolor("white")
-    ax.set_facecolor("white")
+    # Initialize a pure monochrome 1-bit canvas (1 = White background)
+    img = Image.new("1", (width, height), color=1)
+    draw = ImageDraw.Draw(img)
 
-    # font_settings = {"fontname": "Dejavu Sans", "color": "black"}
-    # font = "Dejavu Sans"
-    project_root = get_project_root()
-    font_path = project_root / "src/tide/assets/ElecSign.ttf"
-    prop = fm.FontProperties(fname=font_path)
+    # --- 1. Dynamic Font Scaling ---
+    # Base font sizes on a proportion of total display height
+    font_path = get_project_root() / "src/tide/assets"
+    title_font_file = "ElecSign.ttf"  # "JetBrainsMonoNerdFont-Medium.ttf"
+    label_font_file = "ElecSign.ttf"
+    title_size = max(10, int(height * 0.098))
+    label_size = max(8, int(height * 0.082))
 
-    # Plot curve
-    ax.plot(minutes_x, heights_y, color="black", linewidth=2)
+    try:
+        title_font = ImageFont.truetype(font_path / title_font_file, title_size)
+        label_font = ImageFont.truetype(font_path / label_font_file, label_size)
+    except IOError:
+        print("[WARNING] Failed to load fonts, using defaults.")
+        title_font = ImageFont.load_default()
+        label_font = ImageFont.load_default()
 
-    # Plot and annotate events
-    for event in events:
-        y_pos = 1.0 if event["type"] == "HighWater" else -1.0
+    # --- 2. Proportional Layout Matrix ---
+    # Define bounding margins as explicit fractions of total size
+    top_margin = int(height * 0.18)  # Room for header title
+    bottom_margin = int(height * 0.12)  # Room for time labels at bottom
+    side_margin = int(width * 0.04)  # Small edge safety padding
 
-        # Draw marker
-        ax.plot(event["minute"], y_pos, marker="o", color="black", markersize=4)
+    plot_width = width - (2 * side_margin)
+    plot_height = height - top_margin - bottom_margin
 
-        # Keep text label offset dynamically in-bounds
-        offset = -18 if y_pos > 0 else 18
-        ax.annotate(
-            event["time"],
-            xy=(event["minute"], y_pos),
-            xytext=(0, offset),
-            textcoords="offset points",
-            ha="center",
-            # fontname=font,
-            fontproperties=prop,
-            fontsize=8,
-            # fontweight="bold",
-            color="black",
+    # Central baseline horizontal anchor point
+    baseline_y = top_margin + (plot_height // 2)
+
+    # --- 3. Draw Header ---
+    title_text = f"{events[0]["weekday"]} {events[0]["date"]}"
+    draw.text(
+        (width // 2, int(height * 0.02)),
+        title_text,
+        font=title_font,
+        fill=0,
+        anchor="mt",
+    )
+
+    # --- 4. Coordinate Transformation Functions ---
+    def to_pixel_x(minutes: float) -> float:
+        # Map 0..1440 min into side_margin..width-side_margin
+        return side_margin + (minutes / 1440.0) * plot_width
+
+    def to_pixel_y(tide_height: float) -> float:
+        # Invert scale: positive height moves UP towards plot_top
+        # Map -1.0..1.0 height into plot bounding zone
+        return baseline_y - (tide_height * (plot_height / 2.0))
+
+    # --- 5. Render Chart Elements ---
+    # Map the wave curve coordinates array
+    pixel_xs = to_pixel_x(x_min)
+    pixel_ys = to_pixel_y(y_val)
+    points = list(zip(pixel_xs, pixel_ys))
+    draw.line(points, fill=0, width=2)
+
+    # --- 6. Annotate High/Low Anchor Nodes ---
+    node_radius = max(2, int(height * 0.016))
+    text_offset = max(4, int(height * 0.15))
+
+    for evt in events:
+        ex = int(to_pixel_x(evt["minute"]))
+        ey = int(to_pixel_y(evt["height"]))
+
+        # Render a crisp node box centered over coordinates
+        draw.rectangle(
+            [ex - node_radius, ey - node_radius, ex + node_radius, ey + node_radius],
+            fill=0,
         )
 
-    # Format axes
-    ax.set_xlim(0, 1440)
-    ax.set_xmargin(0)
-    ax.set_xticks(np.arange(0, 1441, 240))
-    ax.set_xticklabels(
-        ["00", "04", "08", "12", "16", "20", "24"],
-        # fontname=font,
-        fontproperties=prop,
-        fontsize=8,
-        color="black",
+        # Place labels based on relative direction shifts
+        label_text = evt["time"]
+        if evt["height"] > 0:
+            # High Tide -> text floats safely below the peak line
+            draw.text(
+                (ex, ey + text_offset), label_text, font=label_font, fill=0, anchor="mt"
+            )
+        else:
+            # Low Tide -> text floats safely above the trough line
+            draw.text(
+                (ex, ey - text_offset),
+                label_text,
+                font=label_font,
+                fill=0,
+                anchor="mt",
+            )
+
+    # --- 7. Dynamic Axis Timeline Marks ---
+    timeline_y = height - bottom_margin
+
+    # Draw zero-line axis
+    draw.line(
+        [(side_margin, timeline_y), (width - side_margin, timeline_y)], fill=0, width=1
     )
-    # ax.tick_params(axis="x", bottom=False)
-    ax.set_ylim(-1.1, 1.1)
-    ax.get_yaxis().set_visible(False)
 
-    # Format borders
-    for spine in ["top", "right", "left"]:
-        ax.spines[spine].set_visible(False)
-    ax.spines["bottom"].set_color("black")
-    ax.spines["bottom"].set_linewidth(1)
+    # Draw standard interval timeline marks across bottom
+    for hour in [0, 6, 12, 18, 24]:
+        tx = int(to_pixel_x(hour * 60))
+        # Tick marker line
+        draw.line(
+            [(tx, timeline_y), (tx, timeline_y + int(height * 0.025))], fill=0, width=1
+        )
+        # Clock text string label
+        draw.text(
+            (tx, timeline_y + int(height * 0.033)),
+            f"{hour:02d}",
+            font=label_font,
+            fill=0,
+            anchor="ma",
+        )
 
-    # Set title
-    date = events[0]["date"]
-    weekday = events[0]["weekday"]  # date.strftime("%A")
-    ax.set_title(f"{weekday} {date}", fontproperties=prop, fontsize=10, fontweight="bold")
-
-    # Save plot in buffer
-    buf = io.BytesIO()
-    plt.savefig(buf, format="png", dpi=dpi, facecolor=fig.get_facecolor(), edgecolor=fig.get_edgecolor(), transparent=False)
-    plt.close(fig)
-    buf.seek(0)
-
-    # img = Image.open(buf)
-    # img_resized = img.resize((width, height), Image.Resampling.LANCZOS)
-
-    return Image.open(buf)
+    return img
 
 
 if __name__ == "__main__":
