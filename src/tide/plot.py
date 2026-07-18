@@ -105,7 +105,9 @@ def plot_tides(
     label_size = max(8, int(height * 0.082))
 
     try:
-        title_font = ImageFont.load_default(title_size) # ImageFont.truetype(font_path / title_font_file, title_size)
+        title_font = ImageFont.load_default(
+            title_size
+        )  # ImageFont.truetype(font_path / title_font_file, title_size)
         label_font = ImageFont.truetype(font_path / label_font_file, label_size)
     except IOError:
         print("[WARNING] Failed to load fonts, using defaults.")
@@ -170,7 +172,11 @@ def plot_tides(
         if evt["height"] > 0:
             # High Tide -> text floats safely below the peak line
             draw.text(
-                (ex, ey + text_offset), label_text, font=label_font, fill=RED, anchor="mt"
+                (ex, ey + text_offset),
+                label_text,
+                font=label_font,
+                fill=RED,
+                anchor="mt",
             )
         else:
             # Low Tide -> text floats safely above the trough line

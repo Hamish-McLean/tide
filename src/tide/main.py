@@ -1,22 +1,21 @@
 import argparse
+import logging
 import os
 import sys
-import logging
 
 from tide import api, inky, plot
 from tide.plot import plot_tides
 
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--quiet', action='store_true', help="Only log errors")
+    parser.add_argument("--quiet", action="store_true", help="Only log errors")
     args = parser.parse_args()
 
     if args.quiet:
