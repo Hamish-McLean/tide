@@ -18,7 +18,6 @@ def fetch_admiralty_tides(api_key: str, station_id: str, n_days: int = 1):
     )
     headers = {"Ocp-Apim-Subscription-Key": api_key}
 
-    print(f"[Admiralty Discovery API] Querying station {station_id}...")
     response = requests.get(url, headers=headers)
     response.raise_for_status()
 
