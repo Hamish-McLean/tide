@@ -1,3 +1,4 @@
+cron.log
 .cache/
 .direnv/
 .env
