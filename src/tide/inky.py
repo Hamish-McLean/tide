@@ -24,7 +24,7 @@ if __name__ == "__main__":
     project_root = get_project_root()
     cache_dir = project_root / ".cache"
 
-    inky_display = initialise_inky_display(invert=True)
+    inky_display = initialise_inky_display(invert=False)
 
     image = Image.open(cache_dir / "tide_plot.png")
 

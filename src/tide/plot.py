@@ -85,10 +85,15 @@ def plot_tides(
     Renders a pixel-perfect tide plot entirely via PIL using relative proportions.
     Adapts cleanly to any display width or height.
     """
+    BLACK = 0
+    WHITE = 1
+    YELLOW = 2
+    RED = 3
+
     x_min, y_val, events = fit_tide_curve(raw_events)
 
     # Initialize a pure monochrome 1-bit canvas (1 = White background)
-    img = Image.new("1", (width, height), color=1)
+    img = Image.new("P", (width, height), color=WHITE)
     draw = ImageDraw.Draw(img)
 
     # --- 1. Dynamic Font Scaling ---
@@ -96,16 +101,16 @@ def plot_tides(
     font_path = get_project_root() / "src/tide/assets"
     title_font_file = "ElecSign.ttf"  # "JetBrainsMonoNerdFont-Medium.ttf"
     label_font_file = "ElecSign.ttf"
-    title_size = max(10, int(height * 0.098))
+    title_size = max(12, int(height * 0.12))
     label_size = max(8, int(height * 0.082))
 
     try:
-        title_font = ImageFont.truetype(font_path / title_font_file, title_size)
+        title_font = ImageFont.load_default(title_size) # ImageFont.truetype(font_path / title_font_file, title_size)
         label_font = ImageFont.truetype(font_path / label_font_file, label_size)
     except IOError:
         print("[WARNING] Failed to load fonts, using defaults.")
-        title_font = ImageFont.load_default()
-        label_font = ImageFont.load_default()
+        title_font = ImageFont.load_default(title_size)
+        label_font = ImageFont.load_default(label_size)
 
     # --- 2. Proportional Layout Matrix ---
     # Define bounding margins as explicit fractions of total size
@@ -125,7 +130,7 @@ def plot_tides(
         (width // 2, int(height * 0.02)),
         title_text,
         font=title_font,
-        fill=0,
+        fill=BLACK,
         anchor="mt",
     )
 
@@ -144,7 +149,7 @@ def plot_tides(
     pixel_xs = to_pixel_x(x_min)
     pixel_ys = to_pixel_y(y_val)
     points = list(zip(pixel_xs, pixel_ys))
-    draw.line(points, fill=0, width=2)
+    draw.line(points, fill=BLACK, width=2)
 
     # --- 6. Annotate High/Low Anchor Nodes ---
     node_radius = max(2, int(height * 0.016))
@@ -157,7 +162,7 @@ def plot_tides(
         # Render a crisp node box centered over coordinates
         draw.rectangle(
             [ex - node_radius, ey - node_radius, ex + node_radius, ey + node_radius],
-            fill=0,
+            fill=RED,
         )
 
         # Place labels based on relative direction shifts
@@ -165,15 +170,15 @@ def plot_tides(
         if evt["height"] > 0:
             # High Tide -> text floats safely below the peak line
             draw.text(
-                (ex, ey + text_offset), label_text, font=label_font, fill=0, anchor="mt"
+                (ex, ey + text_offset), label_text, font=label_font, fill=RED, anchor="mt"
             )
         else:
             # Low Tide -> text floats safely above the trough line
             draw.text(
-                (ex, ey - text_offset),
+                (ex, ey - text_offset - label_size),
                 label_text,
                 font=label_font,
-                fill=0,
+                fill=RED,
                 anchor="mt",
             )
 
@@ -197,7 +202,7 @@ def plot_tides(
             (tx, timeline_y + int(height * 0.033)),
             f"{hour:02d}",
             font=label_font,
-            fill=0,
+            fill=BLACK,
             anchor="ma",
         )
 
